@@ -7,6 +7,11 @@ lazy val root = (project in file("."))
     libraryDependencies ++= Seq(
       "org.apache.spark" %% "spark-core" % "3.3.2",
       "org.apache.spark" %% "spark-streaming" % "3.3.2",
-      "org.apache.spark" %% "spark-sql" % "3.3.2" // Ajout de la dépendance Spark SQL
+      "org.apache.spark" %% "spark-sql" % "3.3.2",
+      "org.scalaj" %% "scalaj-http" % "2.4.2",
+      "org.apache.hadoop" % "hadoop-common" % "3.3.1",
+      "org.apache.hadoop" % "hadoop-client" % "3.3.1",
+      "org.json4s" %% "json4s-jackson" % "3.6.7",
+      "org.json4s" %% "json4s-native" % "3.6.7"
     )
   )

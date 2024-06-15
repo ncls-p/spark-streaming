@@ -1,20 +1,138 @@
 package org.example.spark
 
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.SparkConf
+import scalaj.http.Http
+import org.json4s.DefaultFormats
+import java.util.concurrent.{Executors, TimeUnit}
+import java.nio.file.{Paths, Files, Path}
+import java.nio.file.attribute.PosixFilePermissions
+import java.nio.charset.StandardCharsets
 
 object MainClass extends SparkSessionTrait {
+  implicit val formats: DefaultFormats.type = DefaultFormats
+
   def main(args: Array[String]): Unit = {
-    // Initialize SparkSessionTrait
     SparkSessionTrait("MyAppName", new SparkConf().setAppName("MyAppName").setMaster("local[*]"))
 
-    // Turn off loggers
     SparkSessionTrait.turnOffLoggers()
 
-    // Now you can use the `spark` and `fileSystem` instances
-    val df = spark.read.json("./src/main/resources/people.json")
-    df.show()
+    val scheduler = Executors.newScheduledThreadPool(1)
 
-    val fsStatus = fileSystem.getStatus(new org.apache.hadoop.fs.Path("/"))
-    println(fsStatus)
+    val task = new Runnable {
+      def run(): Unit = {
+        try {
+          val response = Http("https://api.sncf.com/v1/coverage/sncf/lines?count=2000")
+            .header("Content-Type", "application/json")
+            .header("Charset", "UTF-8")
+            .header("Authorization", "89c6d939-9245-494f-8b5a-1522fa890871")
+            .asString
+            .body
+
+          val currentDate = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm"))
+          val jsonFilePath = s"./data/sncf_lines-$currentDate.json"
+
+          val dirPath: Path = Paths.get("./data")
+          if (!Files.exists(dirPath)) {
+            Files.createDirectory(dirPath)
+            Files.setPosixFilePermissions(dirPath, PosixFilePermissions.fromString("rwxrwxrwx"))
+          }
+
+          Files.write(Paths.get(jsonFilePath), response.getBytes(StandardCharsets.UTF_8))
+
+          println(s"Data saved to: $jsonFilePath")
+
+        } catch {
+          case e: Exception =>
+            e.printStackTrace()
+        }
+        try {
+          val response = Http("https://api.sncf.com/v1/coverage/sncf/")
+            .header("Content-Type", "application/json")
+            .header("Charset", "UTF-8")
+            .header("Authorization", "89c6d939-9245-494f-8b5a-1522fa890871")
+            .asString
+            .body
+
+          val currentDate = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm"))
+          val jsonFilePath = s"./data/sncf_path-$currentDate.json"
+
+          val dirPath: Path = Paths.get("./data")
+          if (!Files.exists(dirPath)) {
+            Files.createDirectory(dirPath)
+            Files.setPosixFilePermissions(dirPath, PosixFilePermissions.fromString("rwxrwxrwx"))
+          }
+
+          Files.write(Paths.get(jsonFilePath), response.getBytes(StandardCharsets.UTF_8))
+
+          println(s"Data saved to: $jsonFilePath")
+
+        } catch {
+          case e: Exception =>
+            e.printStackTrace()
+        }
+      try {
+          val response = Http("https://api.sncf.com/v1/coverage/sncf/lines/line:SNCF:A/stop_points")
+            .header("Content-Type", "application/json")
+            .header("Charset", "UTF-8")
+            .header("Authorization", "89c6d939-9245-494f-8b5a-1522fa890871")
+            .asString
+            .body
+
+          val currentDate = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm"))
+          val jsonFilePath = s"./data/sncf_stop_point_rer_a-$currentDate.json"
+
+          val dirPath: Path = Paths.get("./data")
+          if (!Files.exists(dirPath)) {
+            Files.createDirectory(dirPath)
+            Files.setPosixFilePermissions(dirPath, PosixFilePermissions.fromString("rwxrwxrwx"))
+          }
+
+          Files.write(Paths.get(jsonFilePath), response.getBytes(StandardCharsets.UTF_8))
+
+          println(s"Data saved to: $jsonFilePath")
+
+        } catch {
+          case e: Exception =>
+            e.printStackTrace()
+        }
+        try {
+          val response = Http("https://api.sncf.com/v1/coverage/sncf/stop_areas/")
+            .header("Content-Type", "application/json")
+            .header("Charset", "UTF-8")
+            .header("Authorization", "89c6d939-9245-494f-8b5a-1522fa890871")
+            .asString
+            .body
+
+          val currentDate = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm"))
+          val jsonFilePath = s"./data/sncf_stop_areas-$currentDate.json"
+
+          val dirPath: Path = Paths.get("./data")
+          if (!Files.exists(dirPath)) {
+            Files.createDirectory(dirPath)
+            Files.setPosixFilePermissions(dirPath, PosixFilePermissions.fromString("rwxrwxrwx"))
+          }
+
+          Files.write(Paths.get(jsonFilePath), response.getBytes(StandardCharsets.UTF_8))
+
+          println(s"Data saved to: $jsonFilePath")
+
+        } catch {
+          case e: Exception =>
+            e.printStackTrace()
+        }
+      }
+    }
+
+    scheduler.scheduleAtFixedRate(task, 0, 1, TimeUnit.MINUTES)
+
+    while (!Thread.currentThread.isInterrupted) {
+      Thread.sleep(1000)
+    }
+
+    scheduler.shutdown()
+    if (!scheduler.awaitTermination(1, TimeUnit.MINUTES)) {
+      scheduler.shutdownNow()
+    }
   }
 }

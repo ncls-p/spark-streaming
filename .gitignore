@@ -1,0 +1,5 @@
+# scala
+.metals/
+.bsp/
+.vscode/
+target/
