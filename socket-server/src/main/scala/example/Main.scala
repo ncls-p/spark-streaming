@@ -112,13 +112,15 @@ object SparkStreamingFileCSV {
         // Print each line of the CSV
         collectedData.take(5).foreach(line => println(s"CSV line: $line"))
 
-        // If you want to parse the CSV, you can split each line
-        collectedData.foreach { line =>
-          val fields = line.split(",")
-          val data = fields.mkString(", ")
-          println(s"Parsed fields: ${data}")
-
-          server.sendToAll(data)
+        // Parse and send data 5 by 5
+        collectedData.grouped(5).foreach { group =>
+          val parsedGroup = group.map { line =>
+            val fields = line.split(",")
+            fields.mkString(", ")
+          }
+          val dataToSend = parsedGroup.mkString("\n")
+          println(s"Sending data:\n$dataToSend")
+          server.sendToAll(dataToSend)
           Thread.sleep(5000)
         }
 

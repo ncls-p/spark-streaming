@@ -34,7 +34,8 @@ object DataProcessor {
         col("stop_point.coord.lat").alias("latitude")
       )
 
-    trainSchedules.join(stopPoints, Seq("stop_point_id"))
+    trainSchedules
+      .join(stopPoints, Seq("stop_point_id"))
   }
 
   def combineDataFrames(dfs: Seq[DataFrame]): DataFrame = {
