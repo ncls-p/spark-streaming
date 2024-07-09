@@ -1,0 +1,10 @@
+*.metals
+*.vscode
+*.bsp
+*.bloop
+*.log
+*.metals
+*.project
+*.scalafmt.conf
+*.venv
+*target
