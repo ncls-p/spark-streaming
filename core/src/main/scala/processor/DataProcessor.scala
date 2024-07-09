@@ -8,7 +8,10 @@ object DataProcessor {
     spark.read.option("multiline", "true").json(path)
   }
 
-  def processTrainSchedules(dfVehicleJourneys: DataFrame, dfStopPoints: DataFrame): DataFrame = {
+  def processTrainSchedules(
+      dfVehicleJourneys: DataFrame,
+      dfStopPoints: DataFrame
+  ): DataFrame = {
     val trainSchedules = dfVehicleJourneys
       .select(explode(col("vehicle_journeys")).as("vehicle_journey"))
       .select(
@@ -32,5 +35,13 @@ object DataProcessor {
       )
 
     trainSchedules.join(stopPoints, Seq("stop_point_id"))
+  }
+
+  def combineDataFrames(dfs: Seq[DataFrame]): DataFrame = {
+    if (dfs.isEmpty) {
+      throw new IllegalArgumentException("No DataFrames to combine")
+    }
+
+    dfs.reduce((df1, df2) => df1.union(df2))
   }
 }

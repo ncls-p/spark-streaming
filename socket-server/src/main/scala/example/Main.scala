@@ -51,6 +51,12 @@ object SparkStreamingFileCSV {
       override def onStart(): Unit = {
         println("Serveur démarré")
       }
+
+      def sendToAll(message: String): Unit = {
+        connections.foreach { conn =>
+          conn.send(message)
+        }
+      }
     }
     server.start()
 
@@ -71,7 +77,14 @@ object SparkStreamingFileCSV {
       )
       System.exit(1)
     }
-    val csvFiles = dir.listFiles().filter(_.getName.endsWith(".csv"))
+    def listCsvFiles(dir: java.io.File): Array[java.io.File] = {
+      val files = dir.listFiles()
+      val csvFiles = files.filter(_.getName.endsWith(".csv"))
+      val subDirCsvFiles = files.filter(_.isDirectory).flatMap(listCsvFiles)
+      csvFiles ++ subDirCsvFiles
+    }
+
+    val csvFiles = listCsvFiles(dir)
     if (csvFiles.isEmpty) {
       println(s"Aucun fichier CSV trouvé dans $directory")
       System.exit(1)
@@ -102,16 +115,13 @@ object SparkStreamingFileCSV {
         // If you want to parse the CSV, you can split each line
         collectedData.foreach { line =>
           val fields = line.split(",")
-          println(s"Parsed fields: ${fields.mkString(", ")}")
+          val data = fields.mkString(", ")
+          println(s"Parsed fields: ${data}")
+
+          server.sendToAll(data)
+          Thread.sleep(5000)
         }
 
-        val broadcastData = ssc.sparkContext.broadcast(collectedData)
-
-        // Envoyer les données à tous les clients WebSocket connectés
-        server.connections.foreach { conn =>
-          println("Sending data to connection: " + conn)
-          conn.send(collectedData.mkString("\n"))
-        }
       } else {
         println("RDD is empty, no new data to process")
       }

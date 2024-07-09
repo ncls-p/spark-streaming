@@ -2,6 +2,8 @@ package org.example.spark
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.SparkConf
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.Row
 import org.example.spark.downloader.JsonDownloader
 import org.example.spark.processor.DataProcessor
 import org.example.spark.scheduler.TaskScheduler
@@ -30,7 +32,7 @@ object MainClass extends SparkSessionTrait {
       val task = new Runnable {
         def run(): Unit = {
           try {
-            rerLines.foreach { line =>
+            val allTrainSchedules = rerLines.flatMap { line =>
               endpoints.foreach { case (endpoint, prefix) =>
                 val url = s"$baseUrl$line$endpoint?count=2000"
                 val filePrefix = s"${prefix}_$line"
@@ -54,26 +56,37 @@ object MainClass extends SparkSessionTrait {
               )
               trainSchedulesWithNames.show(100, truncate = false)
 
-              val combinedCsvPath =
-                s"./data/combined_train_schedules_rer_$line.csv"
-              val combinedFile = Paths.get(combinedCsvPath)
-              val combinedSaveMode =
-                if (Files.exists(combinedFile)) SaveMode.Append
-                else SaveMode.Overwrite
-
-              println(
-                s"Attempting to save combined train schedules CSV for RER $line to: $combinedCsvPath"
-              )
-              trainSchedulesWithNames
-                .coalesce(1)
-                .write
-                .mode(combinedSaveMode)
-                .option("header", !Files.exists(combinedFile))
-                .csv(combinedCsvPath)
-              println(
-                s"Combined train schedules for RER $line saved to: $combinedCsvPath"
-              )
+              Some(trainSchedulesWithNames.withColumn("rer_line", lit(line)))
             }
+
+            var combinedTrainSchedules = spark.createDataFrame(
+              spark.sparkContext.emptyRDD[Row],
+              allTrainSchedules.head.schema
+            )
+
+            allTrainSchedules.foreach { df =>
+              combinedTrainSchedules = combinedTrainSchedules.union(df)
+            }
+
+            val combinedCsvPath =
+              "../socket-server/csv/combined_train_schedules_rer"
+            val combinedFile = Paths.get(combinedCsvPath)
+            val combinedSaveMode =
+              if (Files.exists(combinedFile)) SaveMode.Overwrite
+              else SaveMode.Overwrite
+
+            println(
+              s"Attempting to save combined train schedules CSV for all RER lines to: $combinedCsvPath"
+            )
+            combinedTrainSchedules
+              .coalesce(1)
+              .write
+              .mode(combinedSaveMode)
+              .option("header", true)
+              .csv(combinedCsvPath)
+            println(
+              s"Combined train schedules for all RER lines saved to: $combinedCsvPath"
+            )
           } catch {
             case e: Exception =>
               e.printStackTrace()
