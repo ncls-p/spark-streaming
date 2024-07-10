@@ -1,6 +1,6 @@
 package org.example.spark.processor
 
-import org.apache.spark.sql.{SparkSession, DataFrame}
+import org.apache.spark.sql.{SparkSession, DataFrame, SaveMode}
 import org.apache.spark.sql.functions._
 
 object DataProcessor {
@@ -44,5 +44,16 @@ object DataProcessor {
     }
 
     dfs.reduce((df1, df2) => df1.union(df2))
+  }
+
+  def writeDataInChunks(df: DataFrame, path: String, chunkSize: Int): Unit = {
+    val orderedDf = df.orderBy("journey_id", "departure_time")
+
+    orderedDf
+      .coalesce(1)
+      .write
+      .mode(SaveMode.Overwrite)
+      .option("header", true)
+      .csv(path)
   }
 }

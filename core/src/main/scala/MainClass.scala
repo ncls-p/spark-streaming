@@ -20,7 +20,7 @@ object MainClass extends SparkSessionTrait {
       spark.sparkContext.setLogLevel("ERROR")
 
       // List of RER lines to process
-      val rerLines = List("A", "B", "C", "D", "E")
+      val rerLines = List("A")
       val baseUrl = "https://api.sncf.com/v1/coverage/sncf/lines/line:SNCF:"
       val endpoints = List(
         "" -> "sncf_lines_rer",
@@ -34,7 +34,7 @@ object MainClass extends SparkSessionTrait {
           try {
             val allTrainSchedules = rerLines.flatMap { line =>
               endpoints.foreach { case (endpoint, prefix) =>
-                val url = s"$baseUrl$line$endpoint?count=2000"
+                val url = s"$baseUrl$line$endpoint?count=200"
                 val filePrefix = s"${prefix}_$line"
                 if (!JsonDownloader.downloadJson(url, filePrefix)) return
               }
@@ -50,11 +50,14 @@ object MainClass extends SparkSessionTrait {
                 name -> DataProcessor.readJson(spark, path)
               }
 
-              val trainSchedulesWithNames = DataProcessor.processTrainSchedules(
-                dfs("dfVehicleJourneys"),
-                dfs("dfStopPoints")
-              )
-              trainSchedulesWithNames.show(100, truncate = false)
+              val trainSchedulesWithNames = DataProcessor
+                .processTrainSchedules(
+                  dfs("dfVehicleJourneys"),
+                  dfs("dfStopPoints")
+                )
+                .orderBy("journey_id")
+                .dropDuplicates()
+              trainSchedulesWithNames.show(3, truncate = false)
 
               Some(trainSchedulesWithNames.withColumn("rer_line", lit(line)))
             }
@@ -78,12 +81,11 @@ object MainClass extends SparkSessionTrait {
             println(
               s"Attempting to save combined train schedules CSV for all RER lines to: $combinedCsvPath"
             )
-            combinedTrainSchedules
-              .coalesce(1)
-              .write
-              .mode(combinedSaveMode)
-              .option("header", true)
-              .csv(combinedCsvPath)
+            DataProcessor.writeDataInChunks(
+              combinedTrainSchedules,
+              combinedCsvPath,
+              5
+            )
             println(
               s"Combined train schedules for all RER lines saved to: $combinedCsvPath"
             )
